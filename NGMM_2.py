@@ -89,6 +89,8 @@ model.step3_flow = Var(model.lines,model.HD_periods, within=NonNegativeReals,ini
 model.step4_flow = Var(model.lines,model.HD_periods, within=NonNegativeReals,initialize=0)
 model.step5_flow = Var(model.lines,model.HD_periods, within=NonNegativeReals,initialize=0)
 
+model.slack_flow = Var(model.lines,model.HD_periods, within=NonNegativeReals,initialize=0)
+
 
 ######=================================================########
 ######               Segment B.8                       ########
@@ -98,8 +100,8 @@ model.step5_flow = Var(model.lines,model.HD_periods, within=NonNegativeReals,ini
 
 def SysCost(model):
     
-    production = sum(model.step1_prod[j,i]*model.Pstep1[j] + model.step2_prod[j,i]*model.Pstep2[j] + model.step3_prod[j,i]*model.Pstep3[j] + model.step4_prod[j,i]*model.Pstep4[j] for i in model.HD_periods for j in model.NA)  
-    pipelines = sum(model.step1_flow[l,i]*model.FTariff_1[l] + model.step2_flow[l,i]*model.FTariff_2[l] + model.step3_flow[l,i]*model.FTariff_3[l] + model.step4_flow[l,i]*model.FTariff_4[l] + model.step5_flow[l,i]*model.FTariff_5[l] for l in model.lines for i in model.HD_periods)
+    production = sum(model.step1_prod[j,i]*model.Pstep1[j] + model.step2_prod[j,i]*model.Pstep2[j] + model.step3_prod[j,i]*model.Pstep3[j] + model.step4_prod[j,i]*model.Pstep4[j] + model.step5_prod[j,i]*model.Pstep5[j] + model.step6_prod[j,i]*model.Pstep6[j] for i in model.HD_periods for j in model.NA)  
+    pipelines = sum(model.step1_flow[l,i]*model.FTariff_1[l] + model.step2_flow[l,i]*model.FTariff_2[l] + model.step3_flow[l,i]*model.FTariff_3[l] + model.step4_flow[l,i]*model.FTariff_4[l] + model.step5_flow[l,i]*model.FTariff_5[l] + model.slack_flow[l,i]*100 for l in model.lines for i in model.HD_periods)
 
     return production + pipelines
     
@@ -152,10 +154,10 @@ model.MaxCapFlow4= Constraint(model.lines,model.HD_periods,rule=MaxPIPE4)
 def Nodal_Balance(model,z,i):
     flow = sum((model.step1_flow[l,i] + model.step2_flow[l,i] + model.step3_flow[l,i] + model.step4_flow[l,i] + model.step5_flow[l,i])*model.line_to_node[l,z] for l in model.lines)   
     gen = sum(model.step1_prod[j,i]*model.QPS_to_node[j,z] + model.step2_prod[j,i]*model.QPS_to_node[j,z] + model.step3_prod[j,i]*model.QPS_to_node[j,z] + model.step4_prod[j,i]*model.QPS_to_node[j,z] + model.step5_prod[j,i]*model.QPS_to_node[j,z] + model.step6_prod[j,i]*model.QPS_to_node[j,z] for j in model.NA)    
-    return gen + flow == model.HorizonDemand[z,i] 
+    return gen + flow == model.HorizonDemand[z,i]
 model.Node_Constraint = Constraint(model.nodes,model.HD_periods,rule=Nodal_Balance)
 
 def Flow_line(model,l,i):
-    return  model.step1_flow[l,i] + model.step2_flow[l,i] + model.step3_flow[l,i] + model.step4_flow[l,i] + model.step5_flow[l,i] <= model.FlowLim[l]
+    return  model.step1_flow[l,i] + model.step2_flow[l,i] + model.step3_flow[l,i] + model.step4_flow[l,i] + model.step5_flow[l,i] - model.slack_flow[l,i] <= model.FlowLim[l]
 model.Flow_Constraint = Constraint(model.lines,model.HD_periods,rule=Flow_line)
 

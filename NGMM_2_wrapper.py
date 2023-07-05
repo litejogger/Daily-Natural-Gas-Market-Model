@@ -6,7 +6,7 @@ Created on Tue Jun 20 22:14:07 2017
 """
 
 from pyomo.opt import SolverFactory
-from NGMM import model as m1
+from NGMM_2 import model as m1
 from pyomo.core import Var
 from pyomo.core import Constraint
 from pyomo.core import Param
@@ -17,13 +17,15 @@ from datetime import datetime
 import pyomo.environ as pyo
 from pyomo.environ import value
 
-max_days = 365
-days = 1#max_days 
+import functools
+
+max_days = 358
+days = max_days #max_days 
 
 instance = m1.create_instance('NGMM_data.dat')
 instance.dual = pyo.Suffix(direction=pyo.Suffix.IMPORT)
 
-Solvername = 'gurobi'
+Solvername = 'cplex'
 Timelimit = 3600 # for the simulation of one day in seconds
 # Threadlimit = 8 # maximum number of threads to use
 
@@ -81,7 +83,7 @@ for day in range(1,days+1):
             for index in cobject:
                  if int(index[1]==1):
                      # try:
-                    duals.append((index[0],index[1]+day-1, instance.dual[cobject[index]]))
+                         duals.append((index[0],index[1]+day-1, instance.dual[cobject[index]]))
                      # except KeyError:
                          # duals.append((index[0],index[1]+day-1,-999))
 
@@ -166,24 +168,40 @@ for day in range(1,days+1):
         if a=='step5_flow':    
             for index in varobject:
                 if int(index[1]==1):
-                    step5_flow.append((index[0],index[1]+day-1,varobject[index].value))                                            
+                    step5_flow.append((index[0],index[1]+day-1,varobject[index].value))
+
+        if a=='slack_flow':
+            for index in varobject:
+                if int(index[1]==1):
+                    slack.append((index[0],index[1]+day-1,varobject[index].value))
         
 
     print(day)
         
-step1_prod_pd=pd.DataFrame(step1_prod,columns=('Producer','Day','Value'))
-step2_prod_pd=pd.DataFrame(step2_prod,columns=('Producer','Day','Value'))
-step3_prod_pd=pd.DataFrame(step3_prod,columns=('Producer','Day','Value'))
-step4_prod_pd=pd.DataFrame(step4_prod,columns=('Producer','Day','Value'))
-step5_prod_pd=pd.DataFrame(step5_prod,columns=('Producer','Day','Value'))
-step6_prod_pd=pd.DataFrame(step6_prod,columns=('Producer','Day','Value'))
+step1_prod_pd=pd.DataFrame(step1_prod,columns=('Producer','Day','step1_prod'))
+step2_prod_pd=pd.DataFrame(step2_prod,columns=('Producer','Day','step2_prod'))
+step3_prod_pd=pd.DataFrame(step3_prod,columns=('Producer','Day','step3_prod'))
+step4_prod_pd=pd.DataFrame(step4_prod,columns=('Producer','Day','step4_prod'))
+step5_prod_pd=pd.DataFrame(step5_prod,columns=('Producer','Day','step5_prod'))
+step6_prod_pd=pd.DataFrame(step6_prod,columns=('Producer','Day','step6_prod'))
 
-step1_flow_pd = pd.DataFrame(step1_flow,columns=('Line','Day','Value'))
-step2_flow_pd = pd.DataFrame(step2_flow,columns=('Line','Day','Value'))
-step3_flow_pd = pd.DataFrame(step3_flow,columns=('Line','Day','Value'))
-step4_flow_pd = pd.DataFrame(step4_flow,columns=('Line','Day','Value'))
-step5_flow_pd = pd.DataFrame(step5_flow,columns=('Line','Day','Value'))
-duals_pd = pd.DataFrame(duals,columns=['Node','Day','Value'])
+step1_flow_pd = pd.DataFrame(step1_flow,columns=('Line','Day','step1_flow'))
+step2_flow_pd = pd.DataFrame(step2_flow,columns=('Line','Day','step2_flow'))
+step3_flow_pd = pd.DataFrame(step3_flow,columns=('Line','Day','step3_flow'))
+step4_flow_pd = pd.DataFrame(step4_flow,columns=('Line','Day','step4_flow'))
+step5_flow_pd = pd.DataFrame(step5_flow,columns=('Line','Day','step5_flow'))
+
+slack_flow_pd = pd.DataFrame(slack,columns=('Line','Day','slack_flow'))
+duals_pd = pd.DataFrame(duals,columns=['Node','Day','nodal_constraint_dual_val'])
+
+#create dataframe of all outputs combined and save
+prod_dfs = [step1_prod_pd,step2_prod_pd,step3_prod_pd,step4_prod_pd,step5_prod_pd,step6_prod_pd]
+flow_dfs = [step1_flow_pd,step2_flow_pd,step3_flow_pd,step4_flow_pd,step5_flow_pd]
+df_prod_combined = functools.reduce(lambda left,right: pd.merge(left,right,on=['Producer','Day']),prod_dfs)
+df_flow_combined = functools.reduce(lambda left,right: pd.merge(left,right,on=['Line','Day']),flow_dfs)
+
+df_prod_combined.to_csv('Outputs/combined_prod.csv', index=False)
+df_flow_combined.to_csv('Outputs/combined_flow.csv', index=False)
 
 #to save outputs
 step1_prod_pd.to_csv('Outputs/step1_prod.csv', index=False)
@@ -198,6 +216,7 @@ step2_flow_pd.to_csv('Outputs/step2_flow.csv', index=False)
 step3_flow_pd.to_csv('Outputs/step3_flow.csv', index=False)
 step4_flow_pd.to_csv('Outputs/step4_flow.csv', index=False)
 step5_flow_pd.to_csv('Outputs/step5_flow.csv', index=False)
+slack_flow_pd.to_csv('Outputs/slack_flow.csv', index=False)
 duals_pd.to_csv('Outputs/duals.csv', index=False)
 
 
