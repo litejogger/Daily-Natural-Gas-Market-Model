@@ -3,7 +3,7 @@ import csv
 import pandas as pd
 import numpy as np
 import re
-
+import os
 
 ######=================================================########
 ######               Segment A.1                       ########
@@ -21,7 +21,7 @@ data_name = 'NGMM_data'
 ######=================================================########
 
 #read parameters for QP supply regions
-df_QP_NA = pd.read_csv('QP_BASE_NA.csv',header=0)
+df_QP_NA = pd.read_csv('QP_BASE_NA_Daily_Downscaled.csv',header=0)
 qps = list(df_QP_NA['producer'])
 for q in qps:
     new_q = q + '_qps'
@@ -30,7 +30,7 @@ for q in qps:
 df_QP_NA['producer'] = qps
 
 #read pipeline data
-df_line_params = pd.read_csv('PipeCapacities_Dec22.csv',header=0,index_col=0)
+df_line_params = pd.read_csv('PipeCapacities_Dec22_Daily_Downscaled_2.csv',header=0,index_col=0)
 i_nodes = list(df_line_params.index)
 c_nodes = list(df_line_params.columns)
 nodes = i_nodes + c_nodes
@@ -100,13 +100,21 @@ df_node_to_producer_map = pd.read_csv('qps_to_node_map.csv',header=0)
 
 
 
-##daily ts of demand at each node
+##daily ts of demand at each node (dummy data)
 
 # fake demand data for now
-d = np.ones((365,len(all_nodes)))*2
-df_demand = pd.DataFrame(d)
-df_demand.columns = all_nodes
+# d = np.ones((365,len(all_nodes)))*2
+# df_demand = pd.DataFrame(d)
+# df_demand.columns = all_nodes
 
+df_demand = pd.read_csv('daily_demand_2019.csv')
+df_net_storage = pd.read_csv('Daily Net Storage 2019.csv')
+
+zero_nodes = ['ME-CN_E', 'NH-CN_E','VT-CN_E','NY-CN_E','MI-CN_E','MN-CN_W','ND-CN_W','MT-CN_W','ID-CN_W','WA-CN_W',
+ 'TX-MX_NE','AZ-MX_NW','CA-MX_NW','TX-MX_SS','MX_NE','MX_NW','MX_IW','MX_CE','MX_SS','CN_E','CN_W']
+
+for node in zero_nodes:
+    df_demand[node] = 0
 
 #node-to-node flow tariffs
 nodal_flow_tariffs = pd.read_csv('PipelineTariff.csv',header=0,index_col = None)
@@ -135,7 +143,7 @@ nodal_flow_tariffs = nodal_flow_tariffs.drop(columns=['to','from'])
 
 
 #node-to-node flow tariffs capacities
-nodal_flow_tariffs_CAP = pd.read_csv('PipeTariffCurveQty.csv',header=0)
+nodal_flow_tariffs_CAP = pd.read_csv('PipeTariffCurveQty_Daily_Downscaled.csv',header=0)
 
 froms = list(nodal_flow_tariffs_CAP['from'])
 tos = list(nodal_flow_tariffs_CAP['to'])
@@ -291,7 +299,10 @@ with open(''+str(data_name)+'.dat', 'w') as f:
     for z in all_nodes:
         for h in range(0,len(df_demand)):
             new = z.replace('-','_')
-            f.write(new + '\t' + str(h+1) + '\t' + str(df_demand.loc[h,z]) + '\n')
+            if z in df_net_storage.columns:
+                f.write(new + '\t' + str(h+1) + '\t' + str(max(df_demand.loc[h,z] + df_net_storage.loc[h,z],0)) + '\n')
+            else:
+                f.write(new + '\t' + str(h+1) + '\t' + str(df_demand.loc[h,z]) + '\n')
     f.write(';\n\n')
     
     print('demand')
