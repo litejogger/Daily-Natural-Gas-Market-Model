@@ -20,6 +20,11 @@ data_name = 'NGMM_data'
 ######               Segment A.2                       ########
 ######=================================================########
 
+
+# add the file path to the data files for your machine
+filepath = r'C:\Users\calisy\OneDrive\Energy Research\NG Project\Daily-Natural-Gas-Market-Model\Data'
+os.chdir(filepath)
+
 #read parameters for QP supply regions
 df_QP_NA = pd.read_csv('QP_BASE_NA_Daily_Downscaled.csv',header=0)
 qps = list(df_QP_NA['producer'])
@@ -30,7 +35,7 @@ for q in qps:
 df_QP_NA['producer'] = qps
 
 #read pipeline data
-df_line_params = pd.read_csv('PipeCapacities_Dec22_Daily_Downscaled_2.csv',header=0,index_col=0)
+df_line_params = pd.read_csv('PipeCapacities_Dec22_Daily_Downscaled.csv',header=0,index_col=0)
 i_nodes = list(df_line_params.index)
 c_nodes = list(df_line_params.columns)
 nodes = i_nodes + c_nodes
@@ -108,7 +113,7 @@ df_node_to_producer_map = pd.read_csv('qps_to_node_map.csv',header=0)
 # df_demand.columns = all_nodes
 
 df_demand = pd.read_csv('daily_demand_2019.csv')
-df_net_storage = pd.read_csv('Daily Net Storage 2019.csv')
+df_net_storage = pd.read_csv('Daily_Net_Storage_2019.csv')
 
 zero_nodes = ['ME-CN_E', 'NH-CN_E','VT-CN_E','NY-CN_E','MI-CN_E','MN-CN_W','ND-CN_W','MT-CN_W','ID-CN_W','WA-CN_W',
  'TX-MX_NE','AZ-MX_NW','CA-MX_NW','TX-MX_SS','MX_NE','MX_NW','MX_IW','MX_CE','MX_SS','CN_E','CN_W']
