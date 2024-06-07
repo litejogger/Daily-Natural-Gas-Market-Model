@@ -89,7 +89,7 @@ model.storage_max_withdrawal = Param(model.nodes,within=NonNegativeReals, mutabl
 
 # Imports and Exports
 # Imports and exports over simulation period
-model.Sim_imports =  Param(model.nodes*model.SD_periods,within=NonNegativeReals,mutable=True)
+model.Sim_imports =  Param(model.nodes*model.SD_periods,within=NonNegativeReals)
 model.Sim_exports = Param(model.nodes*model.SD_periods,within=NonNegativeReals,mutable=True)
 
 # Imports and exports over look ahead horizon
@@ -108,7 +108,7 @@ model.Horizon_production = Param(model.nodes*model.HD_periods,within=NonNegative
 model.step_prod = Var(model.NA,model.num_Qsteps,model.HD_periods,within=NonNegativeReals,initialize=0)
 
 # pipeline flow at each tariff step
-model.step_flow = Var(model.lines,model.num_Qsteps,model.HD_periods,within=NonNegativeReals, initialize=0) # must be positive and negative
+model.step_flow = Var(model.lines,model.num_FTariff_steps,model.HD_periods,within=NonNegativeReals, initialize=0) # must be positive and negative
 
 # total pipeline flow (sum of all flow tariff steps)
 model.total_pipeline_flow = Var(model.lines,model.HD_periods,within=NonNegativeReals,initialize=0)
@@ -154,7 +154,7 @@ model.SystemCost = Objective(rule=SysCost, sense=minimize)
 # Constraint for qstep production to sum to actual production parameter
 # This allows production to be divided into qsteps for the objective function
 def ProdSum(model,n,t):
-    return sum(sum(model.step_prod[i,j,t] for j in model.num_Qsteps)*model.QPS_to_node[i,n] for i in model.NA) == model.Horizon_production[n,t] + model.production_slack[n,t]
+    return sum(sum(model.step_prod[i,j,t] for j in model.num_Qsteps)*model.QPS_to_node[i,n] for i in model.NA) == model.Horizon_production[n,t] - model.production_slack[n,t]
 
 model.Qstep_prod = Constraint(model.nodes,model.HD_periods,rule=ProdSum)
 
@@ -186,6 +186,8 @@ model.Max_Cap_Flow = Constraint(model.lines,model.num_FTariff_steps,model.HD_per
 def FlowSum(model,l,t):
     return sum(model.step_flow[l,k,t] for k in model.num_FTariff_steps) == model.total_pipeline_flow[l,t]
 
+model.FlowSum_Constraint = Constraint(model.lines,model.HD_periods,rule=FlowSum)
+
 # Pipeline flow Capacity constraints
 # total_pipeline_flow variable ties the flow tariff steps to the flow limit
 def Flow_lim(model,l,t):
@@ -196,6 +198,7 @@ model.Flow_Constraint = Constraint(model.lines,model.HD_periods,rule=Flow_lim)
 # Storage daily capacity constraint
 def MaxWithdrawal(model,n,t):
     return model.storage_withdrawal[n,t] <= model.storage_max_withdrawal[n] + model.storage_slack[n,t]
+
 model.MaxStorageWithdrawal= Constraint(model.nodes,model.HD_periods,rule=MaxWithdrawal)
 
 

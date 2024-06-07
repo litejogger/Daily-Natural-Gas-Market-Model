@@ -6,7 +6,7 @@ Created on Tue Jun  4 13:35:03 2024
 
 
 """
-#%%
+#%% Intialize the model
 
 from pyomo.opt import SolverFactory
 from pyomo.core import Var
@@ -33,7 +33,7 @@ import logging
 
 os.chdir(r'C:\Users\calisy\OneDrive\Energy Research\NG Project\code\Gas Model\Gas Model 6 - Weekly Storage Sets Price')
 
-from Daily_Gas_Mod_6 import model as m1
+from Daily_Gas_Mod_6_Working import model as m1
 
 
 
@@ -85,6 +85,11 @@ storage_withdrawal = []
 storage_injection = []
 state_node_balance_duals=[]
 
+
+# keep daily node demand production as comparison
+daily_node_production = []
+daily_node_demand = []
+
 input_data_filepath = r'C:\Users\calisy\OneDrive\Energy Research\NG Project\code\Gas Model\Model Data Inputs'
 
 # get imports for daily imports (not needed since we include all imports and exports in the model)
@@ -102,18 +107,21 @@ for q in qps:
 df_QP_NA['producer'] = qps
 
 # review new qps list
-df_QP_NA['producer'].head()
+# df_QP_NA['producer'].head()
 
-#%%
+#%% Run Model
 
-# set new days if degbugging (currently set on just 1 for now)
-days = 1
+# set new days if degbugging
+days = 7
+
+print('horizon days:', np.array(range(1,days+1)))
 
 for day in range(1,days+1):
     
     # section defining horizon paramters
     for z in instance.nodes:
-    #load Demand and Reserve time series data
+    
+    # iterate over horizon to add demand, production, imports, exports, and storage costs
         for i in K: # horizon days range
             instance.HorizonDemand[z,i] = instance.SimDemand[z,day-1+i]  # horizon demand depends on the starting day in the simulation
             instance.Horizon_production[z,i] = instance.Sim_production[z,day-1+i]
@@ -126,26 +134,30 @@ for day in range(1,days+1):
                 instance.Horizon_exports[z,i] = instance.Sim_exports[z,day-1+i]
             else:
                 instance.Horizon_exports[z,i] = 0
-    
+
+        # save daily node production and demand for comparison
+        daily_node_production.append((z,day,instance.Sim_production[z,day]))
+        daily_node_demand.append((z,day,instance.SimDemand[z,day]))
+
     # start with storage cost = 0 to find other bugs first
     for z in instance.nodes:
         for i in K:
-            instance.Horizon_storage_cost[z,day-1+i] = 0
+            instance.Horizon_storage_cost[z,i] = 10 # placeholder value for storage cost
 
-
+    
                 
 ## solve model instance
     
     start = time.time() #time the model
     
     # solve model
-    result = opt.solve(instance,tee=True,symbolic_solver_labels=True, load_solutions=True) ##,tee=True to check number of variables\n",
+    result = opt.solve(instance,tee=True,symbolic_solver_labels=True, load_solutions=True) ##,tee=True to check solver status
     print(result)
     # log infeasibility if applicable
     # log_infeasible_constraints(instance, log_expression=True, log_variables=True)
     # logging.basicConfig(filename='gas_model_instance.log', encoding='utf-8', level=logging.INFO)
     
-    # print(value(instance.z))
+    # print(value(instance.z)) # this prints objective value but only works if model is solved
     
     # compute_infeasibility_explanation(m1, solver=Solvername)
     
@@ -236,8 +248,15 @@ for day in range(1,days+1):
 
     print('Day ' +str(day) + ' complete.')
 
-# create dataframe of dual values]
-df_duals = pd.DataFrame(state_node_balance_duals,columns=['Node','Day','node_dual_value'])
+
+
+## Dataframes of results and output to csvs
+
+# select where you would like the file to output here
+output_filepath = r'C:\Users\calisy\OneDrive\Energy Research\NG Project\code\Gas Model\Gas Model 6 - Weekly Storage Sets Price - Outputs\model_outputs'
+
+# create dataframe of dual values
+df_duals = pd.DataFrame(state_node_balance_duals,columns=['node','day','node_dual_value'])
 
 # create dataframes of production and line flows
 df_step_prod = pd.DataFrame(step_prod,columns=['producer','qstep','day','step_prod'])
@@ -250,10 +269,23 @@ df_storage_injection = pd.DataFrame(storage_injection,columns=['node','day','sto
 df_pipeline_slack = pd.DataFrame(pipeline_slack,columns=['line','day','pipeline_slack'])
 df_production_slack = pd.DataFrame(production_slack,columns=['node','day','production_slack'])
 df_storage_slack = pd.DataFrame(storage_slack,columns=['node','day','storage_slack'])
-
-
+df_daily_node_production = pd.DataFrame(daily_node_production,columns=['node','day','daily_node_production'])
+df_daily_node_demand = pd.DataFrame(daily_node_demand,columns=['node','day','daily_node_demand'])
 #create dataframe of solve times
 # df_solve_times = pd.DataFrame(solve_times,columns=['day','solution_time'])
 
+## save outputs to csvs
+df_duals.to_csv(os.path.join(output_filepath,'duals.csv'),index=False)
+df_step_prod.to_csv(os.path.join(output_filepath,'qstep_production.csv'),index=False)
+df_step_flow.to_csv(os.path.join(output_filepath,'ftariff_step_flow.csv'),index=False)
+df_total_pipeline_flow.to_csv(os.path.join(output_filepath,'total_pipeline_flows.csv'),index=False)
+df_storage_withdrawal.to_csv(os.path.join(output_filepath,'node_storage_withdrawal.csv'),index=False)
+df_storage_injection.to_csv(os.path.join(output_filepath,'node_storage_injection.csv'),index=False)
+df_pipeline_slack.to_csv(os.path.join(output_filepath,'pipeline_slack.csv'),index=False)
+df_production_slack.to_csv(os.path.join(output_filepath,'node_production_slack.csv'),index=False)
+df_storage_slack.to_csv(os.path.join(output_filepath,'node_storage_slack.csv'),index=False)
+df_daily_node_demand.to_csv(os.path.join(output_filepath,'daily_node_demand.csv'),index=False)
+df_daily_node_production.to_csv(os.path.join(output_filepath,'daily_node_production.csv'),index=False)
 
+print('Model run complete. Outputs saved to csvs.')
 
